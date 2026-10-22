@@ -2,8 +2,8 @@
 
 ## Trạng thái hiện tại
 - **Task đang làm:** (không có)
-- **Task đã nghiệm thu:** T00
-- **Mốc tiếp theo:** T01 – Trang Home hiển thị và chọn Unit 1 từ JSON.
+- **Task đã nghiệm thu:** T00, T01
+- **Mốc tiếp theo:** T02 – Thu âm bằng `st.audio_input()`, phát lại, kiểm tra dữ liệu rỗng.
 - **Blocker:** Không có.
 
 ## Mẫu ghi nhật ký (chép cho mỗi task)
@@ -28,3 +28,11 @@
 - **Kết quả:** PASS
 - **Vấn đề còn lại:** Cần xác nhận thêm trên máy Windows/macOS của người phát triển nếu khác môi trường Linux.
 - **Task tiếp theo:** T01
+
+### 2026-10-22 – T01 – Trang Home chọn Unit từ JSON
+- **Thực hiện:** Viết `load_units()` đọc `units/unit*.json`. Hiển thị selectbox chọn Unit, lưu `selected_unit_id` và `selected_unit` vào `st.session_state`. Hiển thị chi tiết Unit (title, goals, book, grade, status). Ứng dụng khởi động không lỗi, HTTP 200.
+- **File thay đổi:** `app.py` (thay giao diện khung bằng chọn Unit).
+- **Cách kiểm thử:** `python -c "from app import load_units; assert load_units()[0]['id']=='unit01'"`; `streamlit run app.py` → chọn Unit 1 → xác nhận success message và expander chi tiết; reload trang vẫn giữ lựa chọn nhờ session_state.
+- **Kết quả:** PASS
+- **Vấn đề còn lại:** Hiện chỉ có Unit 1; thêm Unit sau ở T13. Chưa có nút "Bắt đầu luyện" (sẽ gắn ở task hội thoại).
+- **Task tiếp theo:** T02
