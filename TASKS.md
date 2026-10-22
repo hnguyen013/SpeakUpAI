@@ -3,7 +3,7 @@
 **Quy ước:** `[ ]` chưa bắt đầu; `[~]` đang làm (dùng trong PROGRESS); `[x]` chỉ sau khi đã chạy/kiểm thử và nghiệm thu. Mỗi issue/PR tương ứng **một task**. Các task chưa hoàn thành được giữ `[ ]` ở đây.
 
 ## Phase 0 – Khởi tạo
-- [ ] **T00** Cài môi trường, khởi chạy `streamlit run app.py`, kiểm tra `.gitignore`, tạo commit đầu. **Done khi:** chạy Home mẫu trên máy.
+- [x] **T00** Cài môi trường, khởi chạy `streamlit run app.py`, kiểm tra `.gitignore`, tạo commit đầu. **Done khi:** chạy Home mẫu trên máy.
 - [ ] **T01** Trang Home hiển thị và chọn Unit 1 từ JSON. **Done khi:** chọn Unit, lưu lựa chọn trong `st.session_state`.
 
 ## Phase 1 – Xử lý âm thanh độc lập
