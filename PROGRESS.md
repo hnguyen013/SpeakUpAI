@@ -1,10 +1,10 @@
 # PROGRESS.md – Nhật ký tiến độ
 
 ## Trạng thái hiện tại
-- **Task đang làm:** (không có)
+- **Task đang làm:** T02 (code đã đẩy, chờ nghiệm thu thu âm trên máy thật)
 - **Task đã nghiệm thu:** T00, T01
 - **Mốc tiếp theo:** T02 – Thu âm bằng `st.audio_input()`, phát lại, kiểm tra dữ liệu rỗng.
-- **Blocker:** Không có.
+- **Blocker:** Cần xác nhận record/playback trên máy có micro (trình duyệt).
 
 ## Mẫu ghi nhật ký (chép cho mỗi task)
 ### YYYY-MM-DD – Txx – Tên task
@@ -36,3 +36,11 @@
 - **Kết quả:** PASS
 - **Vấn đề còn lại:** Hiện chỉ có Unit 1; thêm Unit sau ở T13. Chưa có nút "Bắt đầu luyện" (sẽ gắn ở task hội thoại).
 - **Task tiếp theo:** T02
+
+### 2026-10-22 – T02 – Thu âm st.audio_input, phát lại, kiểm tra rỗng
+- **Thực hiện:** Thêm section "Thu âm thử" sau chọn Unit. Dùng `st.audio_input(..., sample_rate=16000)`. Hàm `is_audio_empty()` kiểm tra None hoặc `getvalue()` rỗng → warning. Có dữ liệu → success + `st.audio` phát lại + lưu `last_audio_bytes` / `last_audio_size` vào session_state. Giữ nguyên T01.
+- **File thay đổi:** `app.py`.
+- **Cách kiểm thử (đã chạy):** unit test `is_audio_empty(None)` / FakeEmpty / FakeAudio; `compile(app.py)`. **Chưa chạy:** record/playback micro thật trên trình duyệt.
+- **Kết quả:** CHƯA KIỂM THỬ (phần micro trên máy thật)
+- **Vấn đề còn lại:** Cần người dùng chạy `streamlit run app.py`, cho phép micro, ghi âm và nghe lại để nghiệm thu.
+- **Task tiếp theo:** Sau khi PASS T02 → T03 (STT).
