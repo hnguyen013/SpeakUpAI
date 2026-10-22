@@ -1,0 +1,9 @@
+{
+  "id": "unit01",
+  "grade": 8,
+  "book": "Global Success",
+  "title": "Leisure Time",
+  "status": "draft",
+  "goals": ["Talk about leisure activities", "Ask and answer simple follow-up questions"],
+  "notes": "Cấu hình mẫu để xây dựng/kiểm duyệt trong T01 và T13."
+}
