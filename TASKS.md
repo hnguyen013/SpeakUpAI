@@ -4,7 +4,7 @@
 
 ## Phase 0 – Khởi tạo
 - [x] **T00** Cài môi trường, khởi chạy `streamlit run app.py`, kiểm tra `.gitignore`, tạo commit đầu. **Done khi:** chạy Home mẫu trên máy.
-- [ ] **T01** Trang Home hiển thị và chọn Unit 1 từ JSON. **Done khi:** chọn Unit, lưu lựa chọn trong `st.session_state`.
+- [x] **T01** Trang Home hiển thị và chọn Unit 1 từ JSON. **Done khi:** chọn Unit, lưu lựa chọn trong `st.session_state`.
 
 ## Phase 1 – Xử lý âm thanh độc lập
 - [ ] **T02** Thu âm bằng `st.audio_input()`, phát lại, kiểm tra dữ liệu rỗng. **Done khi:** record/playback trên máy thật.
