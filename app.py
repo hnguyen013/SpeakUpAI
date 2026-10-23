@@ -1,4 +1,4 @@
-"""SpeakUp AI – Home: Unit (T01) + thu âm (T02) + STT (T03) + TTS (T04)."""
+"""SpeakUp AI – Unit, audio, STT, TTS, AI Teacher (T01–T05)."""
 from __future__ import annotations
 
 import json
@@ -7,18 +7,13 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
+from services.llm import generate_teacher_turn, prompt_fingerprint
 from services.stt import audio_fingerprint, is_mock_mode, transcribe_audio
 from services.tts import synthesize_speech, text_fingerprint
 
 load_dotenv()
 
 UNITS_DIR = Path(__file__).parent / "units"
-
-# Câu mẫu AI Teacher (T04 độc lập LLM; T05 sẽ tạo động)
-SAMPLE_AI_LINE = (
-    "Hi! What do you usually do in your free time? "
-    "Do you like sports or reading?"
-)
 
 
 def load_units() -> list[dict]:
@@ -87,6 +82,93 @@ def _render_tts_section(text: str, state_prefix: str) -> None:
     st.audio(audio_b, format=fmt)
 
 
+def _render_llm_text_lab(unit: dict) -> None:
+    """T05: text-only AI Teacher lab (no microphone)."""
+    st.subheader("AI Teacher (thử bằng văn bản)")
+    st.caption(
+        "T05 – tạo câu hỏi/đáp theo Unit, **không cần micro**. "
+        "Trong buổi thật sẽ không sửa lỗi từng lượt (chỉ hội thoại tự nhiên)."
+    )
+    if is_mock_mode():
+        st.info(
+            "**Mock LLM** đang bật (chưa có `OPENAI_API_KEY`). "
+            "Câu trả lời mẫu cố định theo Unit."
+        )
+
+    if "llm_history" not in st.session_state:
+        st.session_state["llm_history"] = []
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Câu hỏi mở đầu (opening)", key="llm_opening"):
+            fp = prompt_fingerprint(unit["id"], "", st.session_state["llm_history"], "opening")
+            with st.spinner("AI đang soạn câu hỏi…"):
+                result = generate_teacher_turn(
+                    unit, mode="opening", history=st.session_state["llm_history"]
+                )
+            st.session_state["llm_last_fp"] = fp
+            st.session_state["llm_last_text"] = result.text
+            st.session_state["llm_last_error"] = result.error
+            st.session_state["llm_last_mock"] = result.mock
+            if result.text and not result.error:
+                st.session_state["llm_history"] = st.session_state["llm_history"] + [
+                    {"role": "teacher", "text": result.text}
+                ]
+            st.rerun()
+    with c2:
+        if st.button("Xóa lịch sử thử", key="llm_clear"):
+            st.session_state["llm_history"] = []
+            for k in ("llm_last_fp", "llm_last_text", "llm_last_error", "llm_last_mock"):
+                st.session_state.pop(k, None)
+            st.rerun()
+
+    student_in = st.text_input(
+        "Lời học sinh (gõ tiếng Anh)",
+        key="llm_student_input",
+        placeholder="e.g. I like playing football with my friends.",
+    )
+    if st.button("AI đáp lại (follow-up)", type="primary", key="llm_followup"):
+        hist = st.session_state.get("llm_history") or []
+        fp = prompt_fingerprint(unit["id"], student_in, hist, "followup")
+        # Skip duplicate identical request only if same fp already stored as last
+        with st.spinner("AI đang đáp…"):
+            result = generate_teacher_turn(
+                unit,
+                student_text=student_in,
+                history=hist,
+                mode="followup",
+            )
+        st.session_state["llm_last_fp"] = fp
+        st.session_state["llm_last_text"] = result.text
+        st.session_state["llm_last_error"] = result.error
+        st.session_state["llm_last_mock"] = result.mock
+        if result.text and not result.error:
+            st.session_state["llm_history"] = hist + [
+                {"role": "student", "text": student_in.strip()},
+                {"role": "teacher", "text": result.text},
+            ]
+        st.rerun()
+
+    err = st.session_state.get("llm_last_error")
+    text = st.session_state.get("llm_last_text") or ""
+    mock = st.session_state.get("llm_last_mock", False)
+
+    if err:
+        st.error(err)
+    elif text:
+        tag = " (mock)" if mock else ""
+        st.success(f"AI Teacher{tag}: **{text}**")
+        with st.expander("Nghe TTS câu AI", expanded=False):
+            _render_tts_section(text, "tts_llm")
+
+    hist = st.session_state.get("llm_history") or []
+    if hist:
+        with st.expander(f"Lịch sử thử ({len(hist)} lượt)", expanded=True):
+            for i, turn in enumerate(hist, 1):
+                who = "🧑 Học sinh" if turn.get("role") == "student" else "🤖 AI"
+                st.markdown(f"{i}. {who}: {turn.get('text', '')}")
+
+
 def main() -> None:
     st.set_page_config(page_title="SpeakUp AI", page_icon="🎤", layout="centered")
     st.title("🎤 SpeakUp AI")
@@ -134,35 +216,29 @@ def main() -> None:
             st.caption(notes)
 
     st.divider()
-
-    # --- T04: TTS độc lập (không cần micro) ---
-    st.subheader("Nghe thử TTS (giọng AI)")
-    st.caption(
-        "Phát câu hỏi mẫu Unit 1 bằng Text-to-Speech. "
-        "Không phụ thuộc micro — dùng để kiểm tra T04."
-    )
-    if is_mock_mode():
-        st.info(
-            "**Mock TTS** đang bật (chưa có `OPENAI_API_KEY`). "
-            "Sẽ phát tiếng bip ngắn thay cho giọng thật."
-        )
-    st.markdown(f"**Nội dung AI:** {SAMPLE_AI_LINE}")
-    _render_tts_section(SAMPLE_AI_LINE, "tts_sample")
+    _render_llm_text_lab(unit)
 
     st.divider()
 
-    # --- T02 + T03: Thu âm → STT → xác nhận ---
-    st.subheader("Thu âm và nhận dạng")
-    st.caption(
-        "Ghi âm bằng micro. Sau khi dừng, hệ thống chuyển thành chữ (STT). "
-        "Bạn có thể xác nhận transcript hoặc ghi âm lại."
+    # --- T04: TTS sample ---
+    st.subheader("Nghe thử TTS (giọng AI)")
+    st.caption("Phát câu AI gần nhất hoặc câu mẫu nếu chưa có.")
+    sample = st.session_state.get("llm_last_text") or (
+        "Hi! What do you usually do in your free time?"
     )
+    if is_mock_mode():
+        st.info("**Mock TTS** – bip ngắn nếu chưa có API key.")
+    st.markdown(f"**Nội dung:** {sample}")
+    _render_tts_section(sample, "tts_sample")
+
+    st.divider()
+
+    # --- T02 + T03: Thu âm → STT ---
+    st.subheader("Thu âm và nhận dạng")
+    st.caption("Ghi âm → STT → xác nhận transcript (độc lập với lab LLM ở trên).")
 
     if is_mock_mode():
-        st.info(
-            "**Mock STT** đang bật (chưa có `OPENAI_API_KEY` trong `.env`). "
-            "Transcript mẫu sẽ được trả về để thử UI."
-        )
+        st.info("**Mock STT** đang bật khi chưa có `OPENAI_API_KEY`.")
 
     audio_value = st.audio_input(
         "Ghi âm giọng nói của bạn",
@@ -185,7 +261,7 @@ def main() -> None:
         ):
             st.session_state.pop(k, None)
         st.divider()
-        st.info("Bước tiếp theo (T05+): AI Teacher (LLM) sẽ tạo câu hỏi theo Unit.")
+        st.info("Bước tiếp theo (T06): quản lý session_id, turn_id và lịch sử hội thoại.")
         return
 
     raw = audio_value.getvalue()
@@ -213,7 +289,6 @@ def main() -> None:
 
     if stt_error:
         st.error(stt_error)
-        st.caption("Có thể do mạng, API key, hoặc dịch vụ tạm thời. Ghi âm lại hoặc thử sau.")
         if st.button("Thử nhận dạng lại", key="retry_stt"):
             st.session_state.pop("stt_fp", None)
             st.rerun()
@@ -227,7 +302,6 @@ def main() -> None:
             key="transcript_edit",
             label_visibility="collapsed",
         )
-
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Xác nhận transcript", type="primary", key="confirm_tx"):
@@ -236,17 +310,17 @@ def main() -> None:
                 st.session_state["confirmed_transcript"] = edited.strip()
                 st.rerun()
         with col2:
-            st.caption("Muốn ghi lại: xóa bản ghi ở widget micro rồi thu âm mới.")
+            st.caption("Ghi lại: xóa bản ghi ở widget micro rồi thu âm mới.")
 
         if st.session_state.get("transcript_confirmed"):
             confirmed = st.session_state.get("confirmed_transcript") or ""
             st.success(f"Đã xác nhận: **{confirmed}**")
-            st.markdown("**Nghe lại transcript (TTS):**")
             if confirmed:
+                st.markdown("**Nghe lại transcript (TTS):**")
                 _render_tts_section(confirmed, "tts_confirmed")
 
     st.divider()
-    st.info("Bước tiếp theo (T05+): AI Teacher (LLM) sẽ tạo câu hỏi theo Unit.")
+    st.info("Bước tiếp theo (T06): quản lý session_id, turn_id và lịch sử hội thoại.")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@
 ## Phase 1 – Xử lý âm thanh độc lập
 - [x] **T02** Thu âm bằng `st.audio_input()`, phát lại, kiểm tra dữ liệu rỗng. **Done khi:** record/playback trên máy thật.
 - [x] **T03** Gọi Speech-to-Text, hiển thị transcript, cơ chế xác nhận/ghi lại. **Done khi:** xử lý được tiếng Anh thực tế, có lỗi mạng và mock mode.
-- [ ] **T04** Gọi Text-to-Speech và phát tiếng AI. **Done khi:** phát lại được, có bắt lỗi và mock mode.
+- [x] **T04** Gọi Text-to-Speech và phát tiếng AI. **Done khi:** phát lại được, có bắt lỗi và mock mode.
 - [ ] **T05** AI Teacher (LLM) tạo câu hỏi theo giới hạn Unit 1. **Done khi:** test bằng văn bản, không phụ thuộc micro.
 
 ## Phase 2 – Hội thoại hoàn chỉnh

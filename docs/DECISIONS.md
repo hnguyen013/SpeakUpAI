@@ -31,3 +31,10 @@
 - Cùng `OPENAI_API_KEY`; không key → mock (WAV bip ngắn, pure Python) để kiểm tra playback.
 - Fingerprint văn bản tránh gọi trùng khi Streamlit rerun.
 - Lỗi mạng/API ghi vào `TTSResult.error`, UI có nút thử lại.
+
+## D008 – LLM AI Teacher (T05)
+- Model mặc định: `gpt-4o-mini` (chat completions).
+- Giới hạn theo Unit (title, goals, grade 8 Global Success); câu trả lời ngắn A2; **không** sửa lỗi/phát âm giữa buổi.
+- Mode `opening` / `followup`; history tối đa ~8 lượt trong prompt.
+- Không key → mock câu hỏi/đáp cố định về leisure time.
+- `prompt_fingerprint` hỗ trợ tránh request trùng; test UI bằng văn bản, không phụ thuộc micro.
