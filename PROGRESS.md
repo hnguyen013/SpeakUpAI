@@ -1,18 +1,18 @@
 # PROGRESS.md – Nhật ký tiến độ
 
 ## Trạng thái hiện tại
-- **Task đang làm:** T06 (code đã đẩy, chờ nghiệm thu session trên UI)
-- **Task đã nghiệm thu:** T00–T05
-- **Mốc tiếp theo:** T06 – session_id, turn_id, lịch sử, chống trùng request.
-- **Blocker:** Không có.
+- **Task đang làm:** T07 (code đã đẩy, chờ hội thoại 5 lượt trên máy thật/mock)
+- **Task đã nghiệm thu:** T00–T06
+- **Mốc tiếp theo:** T07 – STT→LLM→TTS, 5 lượt Unit 1.
+- **Blocker:** Không có (có tab gõ chữ + mock).
 
 ## Nhật ký
-### 2026-10-23 – T05 – AI Teacher
+### 2026-10-23 – T06 – Session state
 - **Kết quả:** PASS (người dùng nghiệm thu)
 
-### 2026-10-23 – T06 – Session state
-- **Thực hiện:** `services/session.py` – create_session, append_turn (dedupe theo fingerprint), end_session, ensure_session, history_for_llm, turn_count. UI panel phiên: session_id, số lượt, bắt đầu mới / kết thúc, lịch sử turn_id. Lab LLM ghi turn vào practice_session; skip request trùng.
-- **File thay đổi:** `services/session.py` (mới), `app.py`, `docs/DECISIONS.md` (D009), `TASKS.md` (T05 [x]), `PROGRESS.md`.
-- **Cách kiểm thử:** unit test create/append/dedupe/end/unit-change; compile. **Chờ:** UI – opening + follow-up, reload trang vẫn giữ lượt, bấm trùng không nhân đôi.
+### 2026-10-23 – T07 – Ghép hội thoại STT→LLM→TTS
+- **Thực hiện:** UI hội thoại: Bắt đầu → opening LLM+TTS → thu âm/STT phụ đề → xác nhận (không sửa lỗi) → follow-up LLM+TTS; progress 5 lượt học sinh; tab gõ chữ; session panel giữ T06. D010.
+- **File thay đổi:** `app.py` (viết lại luồng chính), `docs/DECISIONS.md`, `TASKS.md` (T06 [x]), `PROGRESS.md`.
+- **Cách kiểm thử:** mock – 5 lần gõ chữ + opening; hoặc micro thật. Compile app.
 - **Kết quả:** CHƯA KIỂM THỬ đầy đủ trên máy người dùng
-- **Task tiếp theo:** Sau PASS T06 → T07 (ghép STT→LLM→TTS).
+- **Task tiếp theo:** Sau PASS T07 → T08 (feedback cuối buổi).
