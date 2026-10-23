@@ -38,3 +38,9 @@
 - Mode `opening` / `followup`; history tối đa ~8 lượt trong prompt.
 - Không key → mock câu hỏi/đáp cố định về leisure time.
 - `prompt_fingerprint` hỗ trợ tránh request trùng; test UI bằng văn bản, không phụ thuộc micro.
+
+## D009 – Session state (T06)
+- Một dict `practice_session` trong `st.session_state`: `session_id` (UUID), `unit_id`, `turns[]` (`turn_id`, `role`, `text`, `ts`), `next_turn_id`, `status` (active|ended), `last_request_fp`.
+- Logic thuần trong `services/session.py` (dễ unit test): create / append_turn / end / ensure / should_skip_request.
+- Đổi Unit hoặc «Bắt đầu phiên mới» → session mới; rerun Streamlit không mất turns.
+- Fingerprint request trùng → không gọi LLM/API lại và không nhân đôi turn.
