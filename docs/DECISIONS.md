@@ -25,3 +25,9 @@
 - Lỗi mạng/API: trả message trong `STTResult.error`, không crash app.
 - Fingerprint SHA-256 của audio bytes để tránh gọi lại API khi Streamlit rerun cùng clip.
 - Học sinh được sửa/xác nhận transcript trước khi dùng cho bước sau (STT có thể nhận sai).
+
+## D007 – TTS dùng OpenAI (T04)
+- Model: `tts-1`, voice mặc định `nova`, định dạng `mp3`.
+- Cùng `OPENAI_API_KEY`; không key → mock (WAV bip ngắn, pure Python) để kiểm tra playback.
+- Fingerprint văn bản tránh gọi trùng khi Streamlit rerun.
+- Lỗi mạng/API ghi vào `TTSResult.error`, UI có nút thử lại.
