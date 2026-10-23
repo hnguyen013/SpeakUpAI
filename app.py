@@ -1,10 +1,15 @@
-"""SpeakUp AI – Home: chọn Unit (T01) + thu âm (T02)."""
+"""SpeakUp AI – Home: chọn Unit (T01) + thu âm (T02) + STT (T03)."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 import streamlit as st
+from dotenv import load_dotenv
+
+from services.stt import audio_fingerprint, is_mock_mode, transcribe_audio
+
+load_dotenv()
 
 UNITS_DIR = Path(__file__).parent / "units"
 
@@ -86,12 +91,18 @@ def main() -> None:
 
     st.divider()
 
-    # --- T02: Thu âm, phát lại, kiểm tra rỗng ---
-    st.subheader("Thu âm thử")
+    # --- T02 + T03: Thu âm → STT → xác nhận / ghi lại ---
+    st.subheader("Thu âm và nhận dạng")
     st.caption(
-        "Bấm nút micro bên dưới để ghi âm. Sau khi dừng, bản ghi sẽ được phát lại. "
-        "Sample rate 16 kHz phù hợp nhận dạng giọng nói (STT ở T03)."
+        "Ghi âm bằng micro. Sau khi dừng, hệ thống chuyển thành chữ (STT). "
+        "Bạn có thể xác nhận transcript hoặc ghi âm lại."
     )
+
+    if is_mock_mode():
+        st.info(
+            "**Mock STT** đang bật (chưa có `OPENAI_API_KEY` trong `.env`). "
+            "Transcript mẫu sẽ được trả về để thử UI."
+        )
 
     audio_value = st.audio_input(
         "Ghi âm giọng nói của bạn",
@@ -102,23 +113,77 @@ def main() -> None:
 
     if is_audio_empty(audio_value):
         st.warning("Chưa có bản ghi âm hoặc dữ liệu rỗng. Hãy ghi âm rồi thử lại.")
-        st.session_state.pop("last_audio_bytes", None)
-        st.session_state.pop("last_audio_size", None)
-    else:
-        raw = audio_value.getvalue()
-        size = len(raw)
-        st.session_state["last_audio_bytes"] = raw
-        st.session_state["last_audio_size"] = size
+        for k in (
+            "last_audio_bytes",
+            "last_audio_size",
+            "stt_fp",
+            "stt_text",
+            "stt_error",
+            "stt_mock",
+            "transcript_confirmed",
+        ):
+            st.session_state.pop(k, None)
+        st.divider()
+        st.info("Bước tiếp theo (T04+): TTS và AI Teacher sẽ dùng transcript đã xác nhận.")
+        return
 
-        st.success(f"Đã nhận bản ghi âm ({size:,} bytes, WAV).")
-        st.audio(audio_value, format="audio/wav")
-        st.caption("Nghe lại bản ghi ở trên. Xóa hoặc ghi lại bằng widget thu âm nếu cần.")
+    raw = audio_value.getvalue()
+    size = len(raw)
+    fp = audio_fingerprint(raw)
+    st.session_state["last_audio_bytes"] = raw
+    st.session_state["last_audio_size"] = size
+
+    st.success(f"Đã nhận bản ghi âm ({size:,} bytes, WAV).")
+    st.audio(audio_value, format="audio/wav")
+
+    # Avoid re-calling API on Streamlit rerun for the same clip
+    need_stt = st.session_state.get("stt_fp") != fp
+    if need_stt:
+        with st.spinner("Đang nhận dạng giọng nói…"):
+            result = transcribe_audio(raw, language="en")
+        st.session_state["stt_fp"] = fp
+        st.session_state["stt_text"] = result.text
+        st.session_state["stt_error"] = result.error
+        st.session_state["stt_mock"] = result.mock
+        st.session_state["transcript_confirmed"] = False
+
+    stt_error = st.session_state.get("stt_error")
+    stt_text = st.session_state.get("stt_text") or ""
+    stt_mock = st.session_state.get("stt_mock", False)
+
+    if stt_error:
+        st.error(stt_error)
+        st.caption("Có thể do mạng, API key, hoặc dịch vụ tạm thời. Ghi âm lại hoặc thử sau.")
+        if st.button("Thử nhận dạng lại", key="retry_stt"):
+            st.session_state.pop("stt_fp", None)
+            st.rerun()
+    else:
+        label = "Transcript (mock)" if stt_mock else "Transcript"
+        st.markdown(f"**{label}:**")
+        # Cho phép sửa nhẹ trước khi xác nhận (STT có thể nhận sai)
+        edited = st.text_area(
+            "Nội dung nhận dạng",
+            value=stt_text,
+            height=100,
+            key="transcript_edit",
+            label_visibility="collapsed",
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Xác nhận transcript", type="primary", key="confirm_tx"):
+                st.session_state["stt_text"] = edited.strip()
+                st.session_state["transcript_confirmed"] = True
+                st.rerun()
+        with col2:
+            st.caption("Muốn ghi lại: xóa bản ghi ở widget micro rồi thu âm mới.")
+
+        if st.session_state.get("transcript_confirmed"):
+            st.success(f"Đã xác nhận: **{st.session_state['stt_text']}**")
+            st.session_state["confirmed_transcript"] = st.session_state["stt_text"]
 
     st.divider()
-    st.info(
-        "Bước tiếp theo (T03+): Speech-to-Text, hội thoại AI và feedback sẽ dùng "
-        "Unit đã chọn và bản ghi âm ở trên."
-    )
+    st.info("Bước tiếp theo (T04+): TTS và AI Teacher sẽ dùng transcript đã xác nhận.")
 
 
 if __name__ == "__main__":

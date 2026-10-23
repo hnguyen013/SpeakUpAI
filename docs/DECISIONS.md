@@ -17,3 +17,11 @@
 
 ## D005 – Phạm vi ban đầu
 - Lớp 8 Global Success; hoàn chỉnh Unit 1 trước, 12 Unit là mục tiêu mở rộng.
+
+## D006 – STT dùng OpenAI Whisper (T03)
+- Model: `whisper-1` qua API, language=`en`.
+- API key chỉ từ `OPENAI_API_KEY` (python-dotenv); không hardcode.
+- Không có key → **mock mode** trả transcript mẫu để phát triển UI offline.
+- Lỗi mạng/API: trả message trong `STTResult.error`, không crash app.
+- Fingerprint SHA-256 của audio bytes để tránh gọi lại API khi Streamlit rerun cùng clip.
+- Học sinh được sửa/xác nhận transcript trước khi dùng cho bước sau (STT có thể nhận sai).

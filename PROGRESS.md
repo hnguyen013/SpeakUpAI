@@ -1,10 +1,10 @@
 # PROGRESS.md – Nhật ký tiến độ
 
 ## Trạng thái hiện tại
-- **Task đang làm:** T02 (code đã đẩy, chờ nghiệm thu thu âm trên máy thật)
-- **Task đã nghiệm thu:** T00, T01
-- **Mốc tiếp theo:** T02 – Thu âm bằng `st.audio_input()`, phát lại, kiểm tra dữ liệu rỗng.
-- **Blocker:** Cần xác nhận record/playback trên máy có micro (trình duyệt).
+- **Task đang làm:** T03 (code đã đẩy, chờ nghiệm thu STT mock + thật)
+- **Task đã nghiệm thu:** T00, T01, T02
+- **Mốc tiếp theo:** T03 – STT, transcript, xác nhận/ghi lại.
+- **Blocker:** Không có (mock mode chạy không cần key).
 
 ## Mẫu ghi nhật ký (chép cho mỗi task)
 ### YYYY-MM-DD – Txx – Tên task
@@ -38,9 +38,17 @@
 - **Task tiếp theo:** T02
 
 ### 2026-10-22 – T02 – Thu âm st.audio_input, phát lại, kiểm tra rỗng
-- **Thực hiện:** Thêm section "Thu âm thử" sau chọn Unit. Dùng `st.audio_input(..., sample_rate=16000)`. Hàm `is_audio_empty()` kiểm tra None hoặc `getvalue()` rỗng → warning. Có dữ liệu → success + `st.audio` phát lại + lưu `last_audio_bytes` / `last_audio_size` vào session_state. Giữ nguyên T01.
+- **Thực hiện:** Thêm section "Thu âm thử". `st.audio_input(sample_rate=16000)`. `is_audio_empty()`; phát lại `st.audio`; lưu bytes vào session_state.
 - **File thay đổi:** `app.py`.
-- **Cách kiểm thử (đã chạy):** unit test `is_audio_empty(None)` / FakeEmpty / FakeAudio; `compile(app.py)`. **Chưa chạy:** record/playback micro thật trên trình duyệt.
-- **Kết quả:** CHƯA KIỂM THỬ (phần micro trên máy thật)
-- **Vấn đề còn lại:** Cần người dùng chạy `streamlit run app.py`, cho phép micro, ghi âm và nghe lại để nghiệm thu.
-- **Task tiếp theo:** Sau khi PASS T02 → T03 (STT).
+- **Cách kiểm thử:** unit test empty/non-empty; compile; người dùng xác nhận record/playback trên máy thật.
+- **Kết quả:** PASS (người dùng nghiệm thu)
+- **Vấn đề còn lại:** Không có.
+- **Task tiếp theo:** T03
+
+### 2026-10-23 – T03 – Speech-to-Text, transcript, xác nhận/ghi lại
+- **Thực hiện:** `services/stt.py` – Whisper API (`whisper-1`, language=en), mock khi không có key, fingerprint tránh gọi trùng khi rerun, bắt lỗi mạng/API. UI: hiện transcript, text_area sửa, nút Xác nhận, nút Thử lại khi lỗi; ghi âm lại bằng xóa widget micro. D006 ghi vào DECISIONS.
+- **File thay đổi:** `services/stt.py` (mới), `app.py`, `requirements.txt` (openai), `.env.example`, `docs/DECISIONS.md`, `TASKS.md` (T02 [x]), `PROGRESS.md`.
+- **Cách kiểm thử:** unit test mock + empty + fingerprint (chạy local); compile. **Chưa:** gọi Whisper thật với key + tiếng Anh thực tế trên máy người dùng.
+- **Kết quả:** CHƯA KIỂM THỬ đầy đủ (mock logic sẵn; API thật cần key)
+- **Vấn đề còn lại:** Người dùng cần `pip install -r requirements.txt`, (tuỳ chọn) điền `OPENAI_API_KEY` trong `.env`, chạy app, ghi âm tiếng Anh, xác nhận transcript.
+- **Task tiếp theo:** Sau PASS T03 → T04 (TTS).
