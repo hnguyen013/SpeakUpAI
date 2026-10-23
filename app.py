@@ -1,4 +1,4 @@
-"""SpeakUp AI – hội thoại Unit 1: STT → LLM → TTS (T01–T07)."""
+"""SpeakUp AI – hội thoại + feedback cuối buổi (T01–T08)."""
 from __future__ import annotations
 
 import json
@@ -7,6 +7,11 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
+from services.feedback import (
+    feedback_fingerprint,
+    generate_feedback,
+    student_lines_from_session,
+)
 from services.llm import generate_teacher_turn, prompt_fingerprint
 from services.session import (
     append_turn,
@@ -24,7 +29,6 @@ load_dotenv()
 
 UNITS_DIR = Path(__file__).parent / "units"
 SS_PRACTICE = "practice_session"
-# Số lượt học sinh mục tiêu cho nghiệm thu T07 (mỗi lượt = student + teacher)
 TARGET_STUDENT_TURNS = 5
 
 
@@ -118,11 +122,9 @@ def _start_opening(unit: dict, sess: dict) -> None:
         st.session_state["conv_error"] = None
         st.session_state.pop("pending_stt_fp", None)
         st.session_state.pop("pending_transcript", None)
-        st.session_state["awaiting_student"] = True
 
 
 def _complete_student_turn(unit: dict, sess: dict, student_text: str) -> None:
-    """After transcript confirmed: student turn → LLM → teacher turn."""
     cleaned = (student_text or "").strip()
     if not cleaned:
         st.session_state["conv_error"] = "Transcript trống."
@@ -145,20 +147,89 @@ def _complete_student_turn(unit: dict, sess: dict, student_text: str) -> None:
     st.session_state["conv_error"] = None
     st.session_state.pop("pending_stt_fp", None)
     st.session_state.pop("pending_transcript", None)
-    st.session_state["awaiting_student"] = True
+
+
+def _render_feedback(unit: dict, sess: dict) -> None:
+    """T08: end-of-session feedback panel."""
+    st.subheader("Feedback cuối buổi")
+    st.caption(
+        "Chỉ dựa trên transcript đã xác nhận. "
+        "**Không** chấm phát âm từ chữ viết."
+    )
+
+    lines = student_lines_from_session(sess)
+    if not lines:
+        st.info("Chưa có lời học sinh trong phiên — luyện vài lượt rồi xem feedback.")
+        return
+
+    fp = feedback_fingerprint(unit["id"], lines)
+    if (
+        st.session_state.get("fb_fp") != fp
+        or st.session_state.get("fb_report") is None
+        or st.button("Tạo / làm mới feedback", key="fb_refresh")
+    ):
+        with st.spinner("Đang tổng hợp feedback…"):
+            report = generate_feedback(unit, sess)
+        st.session_state["fb_fp"] = fp
+        st.session_state["fb_report"] = report.to_dict()
+
+    data = st.session_state.get("fb_report") or {}
+    if data.get("error"):
+        st.error(data["error"])
+        return
+
+    tag = " (mock)" if data.get("mock") else ""
+    st.markdown(f"**Báo cáo{tag}**")
+
+    strengths = data.get("strengths") or []
+    if strengths:
+        st.markdown("#### Điểm tốt")
+        for s in strengths:
+            st.markdown(f"- {s}")
+
+    issues = data.get("issues") or []
+    if issues:
+        st.markdown("#### Gợi ý sửa (dựa trên transcript)")
+        for i, iss in enumerate(issues, 1):
+            st.markdown(
+                f"**{i}. [{iss.get('category', 'other')}]**  \n"
+                f"- Evidence: _{iss.get('evidence', '')}_  \n"
+                f"- Suggestion: **{iss.get('suggestion', '')}**  \n"
+                f"- Note: {iss.get('note', '')}"
+            )
+    else:
+        st.markdown("#### Gợi ý sửa")
+        st.write("Không thấy lỗi ngôn ngữ rõ trên transcript đã xác nhận.")
+
+    uncertain = data.get("uncertain_transcripts") or []
+    if uncertain:
+        st.markdown("#### Transcript chưa chắc")
+        st.caption("Có thể do STT — không tính là lỗi phát âm.")
+        for u in uncertain:
+            st.markdown(f"- _{u}_")
+
+    tips = data.get("practice_tips") or []
+    if tips:
+        st.markdown("#### Luyện thêm")
+        for t in tips:
+            st.markdown(f"- {t}")
+
+    with st.expander("JSON schema (debug)", expanded=False):
+        st.json(data)
 
 
 def _render_conversation(unit: dict, sess: dict) -> None:
     st.subheader("Hội thoại luyện nói")
     st.caption(
-        f"Luồng: AI nói (TTS) → bạn thu âm → phụ đề (STT) → xác nhận → AI tiếp tục. "
+        f"AI (TTS) → thu âm → phụ đề → xác nhận → AI tiếp. "
         f"Không sửa lỗi giữa buổi. Mục tiêu ~{TARGET_STUDENT_TURNS} lượt học sinh."
     )
     if is_mock_mode():
-        st.info("Mock STT/LLM/TTS đang bật (chưa có `OPENAI_API_KEY`).")
+        st.info("Mock STT/LLM/TTS/Feedback đang bật (chưa có `OPENAI_API_KEY`).")
 
     if sess.get("status") != "active":
-        st.warning("Phiên đã kết thúc. Bấm «Bắt đầu phiên mới» ở trên.")
+        st.warning("Phiên đã kết thúc.")
+        _render_feedback(unit, sess)
         return
 
     n_student = _student_turn_count(sess)
@@ -167,15 +238,13 @@ def _render_conversation(unit: dict, sess: dict) -> None:
         text=f"Lượt học sinh: {n_student}/{TARGET_STUDENT_TURNS}",
     )
 
-    # ---- Opening ----
     if turn_count(sess) == 0:
         if st.button("Bắt đầu hội thoại", type="primary", key="conv_start"):
             _start_opening(unit, sess)
             st.rerun()
-        st.caption("AI sẽ chào và hỏi một câu về leisure time.")
+        st.caption("AI sẽ chào và hỏi về leisure time.")
         return
 
-    # ---- Subtitles / history (no correction) ----
     turns = sess.get("turns") or []
     with st.expander(f"Phụ đề & lịch sử ({len(turns)} lượt)", expanded=True):
         for t in turns:
@@ -188,20 +257,18 @@ def _render_conversation(unit: dict, sess: dict) -> None:
         _play_tts(teacher_line, "tts_teacher_live")
 
     if n_student >= TARGET_STUDENT_TURNS:
-        st.success(
-            f"Đã đủ {TARGET_STUDENT_TURNS} lượt học sinh. "
-            "Có thể kết thúc phiên hoặc tiếp tục luyện."
-        )
-        if st.button("Kết thúc phiên (đủ lượt)", key="conv_end_ok"):
+        st.success(f"Đã đủ {TARGET_STUDENT_TURNS} lượt học sinh.")
+        if st.button("Kết thúc phiên & xem feedback", type="primary", key="conv_end_ok"):
             end_session(sess)
             st.session_state[SS_PRACTICE] = sess
+            st.session_state.pop("fb_fp", None)
+            st.session_state.pop("fb_report", None)
             st.rerun()
 
     err = st.session_state.get("conv_error")
     if err:
         st.error(err)
 
-    # ---- Student input: mic STT or text fallback ----
     st.markdown("**Lượt của bạn**")
     tab_mic, tab_text = st.tabs(["Thu âm (STT)", "Gõ chữ (thử nhanh)"])
 
@@ -210,7 +277,6 @@ def _render_conversation(unit: dict, sess: dict) -> None:
             "Ghi âm câu trả lời",
             sample_rate=16000,
             key="conv_audio",
-            help="Cho phép micro trong trình duyệt.",
         )
         if not is_audio_empty(audio_value):
             raw = audio_value.getvalue()
@@ -238,16 +304,16 @@ def _render_conversation(unit: dict, sess: dict) -> None:
                     key="conv_transcript_edit",
                     height=80,
                 )
-                st.caption("Chỉ hiển thị phụ đề — không sửa lỗi ngữ pháp ở bước này.")
+                st.caption("Chỉ phụ đề — không sửa lỗi ngữ pháp ở bước này.")
                 if st.button("Xác nhận & gửi cho AI", type="primary", key="conv_confirm_mic"):
                     _complete_student_turn(unit, sess, edited)
                     st.rerun()
         else:
-            st.caption("Thu âm xong, hệ thống hiện phụ đề để bạn xác nhận.")
+            st.caption("Thu âm xong để hiện phụ đề.")
 
     with tab_text:
         typed = st.text_input(
-            "Gõ câu tiếng Anh (bỏ qua micro)",
+            "Gõ câu tiếng Anh",
             key="conv_text_input",
             placeholder="I usually play football after school.",
         )
@@ -294,7 +360,6 @@ def main() -> None:
 
     st.divider()
 
-    # Session controls
     sess = _get_practice_session(unit["id"])
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -311,23 +376,27 @@ def main() -> None:
         if st.button("Bắt đầu phiên mới", key="sess_new"):
             st.session_state[SS_PRACTICE] = create_session(unit["id"])
             for k in list(st.session_state.keys()):
-                if k.startswith("tts_") or k.startswith("pending_") or k in {
-                    "conv_error",
-                    "awaiting_student",
-                }:
+                if (
+                    k.startswith("tts_")
+                    or k.startswith("pending_")
+                    or k.startswith("fb_")
+                    or k in {"conv_error"}
+                ):
                     st.session_state.pop(k, None)
             st.rerun()
     with b2:
         if sess.get("status") == "active" and st.button("Kết thúc phiên", key="sess_end"):
             end_session(sess)
             st.session_state[SS_PRACTICE] = sess
+            st.session_state.pop("fb_fp", None)
+            st.session_state.pop("fb_report", None)
             st.rerun()
 
     st.divider()
     _render_conversation(unit, sess)
 
     st.divider()
-    st.caption("MVP A (T00–T07): hội thoại Unit 1. Feedback cuối buổi → T08.")
+    st.caption("T08 feedback sau khi kết thúc phiên. Lưu DB → T09–T10.")
 
 
 if __name__ == "__main__":
